@@ -1,0 +1,312 @@
+
+\documentclass[11pt,a4paper]{article}
+
+% Encodage et langue
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+
+% Mise en page et mathématiques
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!50!black,
+    urlcolor=blue!50!black
+}
+
+\title{\textbf{Détection de contours par la méthode de Sobel}\\
+       \large Fondements mathématiques et description de l'algorithme}
+\author{Ronhy RAKOTONDRAFARA}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Introduction}
+
+La méthode de Sobel est un opérateur de détection de contours en traitement
+d'images. Elle permet de repérer les zones où l'intensité lumineuse varie
+rapidement. Ces variations correspondent généralement aux frontières entre
+des régions de l'image.
+
+L'idée mathématique consiste à approximer les dérivées spatiales de l'image
+selon deux directions perpendiculaires : l'horizontale et la verticale.
+À partir de ces deux dérivées, on calcule l'intensité et la direction du
+gradient, puis on peut éventuellement appliquer un seuil pour obtenir une
+image binaire des contours.
+
+\section{Représentation mathématique de l'image}
+
+Une image en niveaux de gris est représentée par une fonction discrète
+\[
+    I : \{0,\ldots,H-1\}\times\{0,\ldots,W-1\}
+    \longrightarrow \mathbb{R},
+\]
+où $H$ est la hauteur de l'image, $W$ sa largeur, et $I(y,x)$ l'intensité
+du pixel situé à la ligne $y$ et à la colonne $x$.
+
+Dans une image codée sur 8 bits, l'intensité est généralement comprise entre
+$0$ et $255$ :
+\[
+    0 \leq I(y,x) \leq 255.
+\]
+La valeur $0$ représente le noir et la valeur $255$ le blanc.
+
+\subsection{Conversion en niveaux de gris}
+
+Lorsqu'une image est en couleur, on peut construire une intensité unique à
+partir des composantes rouge $R$, verte $G$ et bleue $B$ :
+\[
+    I(y,x)=0.299R(y,x)+0.587G(y,x)+0.114B(y,x).
+\]
+Les coefficients donnent davantage de poids à la composante verte, à laquelle
+l'œil humain est généralement plus sensible.
+
+Si l'image est déjà en niveaux de gris, cette étape n'est pas nécessaire.
+
+\section{Principe du gradient}
+
+Pour une image continue $I(x,y)$, le gradient est le vecteur formé par les
+dérivées partielles de l'intensité :
+\[
+    \nabla I(x,y)=
+    \begin{pmatrix}
+        \dfrac{\partial I}{\partial x}\\[4pt]
+        \dfrac{\partial I}{\partial y}
+    \end{pmatrix}.
+\]
+
+Les deux composantes du gradient sont :
+\[
+    G_x=\frac{\partial I}{\partial x},
+    \qquad
+    G_y=\frac{\partial I}{\partial y}.
+\]
+
+\begin{itemize}[leftmargin=1.2cm]
+    \item $G_x$ mesure la variation de l'intensité dans la direction
+    horizontale.
+    \item $G_y$ mesure la variation de l'intensité dans la direction
+    verticale.
+\end{itemize}
+
+Une valeur élevée de l'une de ces composantes indique une variation
+importante de luminosité dans la direction correspondante. Les contours
+sont donc associés aux zones où la norme du gradient est élevée.
+
+\section{Masques de Sobel}
+
+Dans une image numérique, les dérivées sont approximées à l'aide de masques
+de convolution de taille $3\times3$.
+
+Le masque horizontal est :
+\[
+    K_x=
+    \begin{bmatrix}
+        -1 & 0 & 1\\
+        -2 & 0 & 2\\
+        -1 & 0 & 1
+    \end{bmatrix}.
+\]
+
+Le masque vertical est :
+\[
+    K_y=
+    \begin{bmatrix}
+        -1 & -2 & -1\\
+         0 &  0 &  0\\
+         1 &  2 &  1
+    \end{bmatrix}.
+\]
+
+Ces masques associent deux opérations :
+\begin{enumerate}[leftmargin=1.2cm]
+    \item une différence entre les intensités de part et d'autre du pixel
+    central, afin d'estimer une dérivée ;
+    \item une pondération des pixels voisins, qui donne un effet de
+    lissage et rend l'estimation moins sensible aux petites variations.
+\end{enumerate}
+
+\section{Convolution et calcul des gradients}
+
+Soit $K$ un masque de taille $3\times3$. La convolution discrète de l'image
+$I$ par ce masque est définie par :
+\[
+    (I*K)(y,x)=
+    \sum_{i=-1}^{1}\sum_{j=-1}^{1}
+    I(y-i,x-j)\,K(i,j).
+\]
+
+Les indices négatifs ou dépassant les dimensions de l'image apparaissent
+lorsqu'on traite les pixels situés sur les bords. Pour conserver les
+dimensions de l'image, on prolonge ici l'image en répétant la valeur du
+pixel de bord le plus proche. Cette règle est appelée prolongement par
+réplication des bords.
+
+Les deux composantes du gradient sont alors calculées par :
+\[
+    G_x=I*K_x,
+    \qquad
+    G_y=I*K_y.
+\]
+
+Pixel par pixel, on obtient :
+\[
+    G_x(y,x)=
+    \sum_{i=-1}^{1}\sum_{j=-1}^{1}
+    I(y-i,x-j)K_x(i,j),
+\]
+\[
+    G_y(y,x)=
+    \sum_{i=-1}^{1}\sum_{j=-1}^{1}
+    I(y-i,x-j)K_y(i,j).
+\]
+
+Les matrices $G_x$ et $G_y$ ont les mêmes dimensions que l'image initiale.
+
+\section{Magnitude du gradient}
+
+La magnitude représente l'intensité globale de la variation lumineuse,
+indépendamment de sa direction. Elle est calculée à partir de la norme
+euclidienne du gradient :
+\[
+    M(y,x)=\sqrt{G_x(y,x)^2+G_y(y,x)^2}.
+\]
+
+Une magnitude proche de zéro indique une région relativement uniforme.
+Une magnitude élevée indique une variation importante de l'intensité et
+peut donc correspondre à un contour.
+
+La direction du gradient peut également être exprimée par :
+\[
+    \theta(y,x)=
+    \operatorname{atan2}\bigl(G_y(y,x),G_x(y,x)\bigr).
+\]
+Cette direction est perpendiculaire à l'orientation locale du contour.
+
+\section{Normalisation de la magnitude}
+
+Les valeurs de $M$ ne sont pas nécessairement comprises entre $0$ et $255$.
+Pour obtenir une représentation sur 8 bits, on effectue une normalisation
+min-max.
+
+On note :
+\[
+    M_{\min}=\min_{y,x}M(y,x),
+    \qquad
+    M_{\max}=\max_{y,x}M(y,x).
+\]
+
+Si $M_{\max}\neq M_{\min}$, la magnitude normalisée est :
+\[
+    M_N(y,x)=
+    255\,\frac{M(y,x)-M_{\min}}{M_{\max}-M_{\min}}.
+\]
+
+Ainsi :
+\[
+    0\leq M_N(y,x)\leq255.
+\]
+
+Dans le cas particulier où $M_{\max}=M_{\min}$, toutes les valeurs sont
+identiques ; l'image normalisée est alors définie comme une image nulle :
+\[
+    M_N(y,x)=0.
+\]
+
+\section{Seuillage facultatif}
+
+Pour obtenir une image binaire des contours, on peut appliquer un seuil
+$T$ à la magnitude normalisée. Le résultat $E$ est défini par :
+\[
+    E(y,x)=
+    \begin{cases}
+        255, & \text{si } M_N(y,x)\geq T,\\
+        0,   & \text{sinon}.
+    \end{cases}
+\]
+
+Les pixels dont la magnitude atteint ou dépasse le seuil sont considérés
+comme des contours. Les autres pixels sont supprimés.
+
+Un seuil élevé conserve principalement les variations les plus fortes,
+mais peut éliminer des contours peu contrastés. Un seuil faible conserve
+davantage de détails, au risque de laisser apparaître des variations
+non pertinentes.
+
+Si aucun seuil n'est appliqué, le résultat reste l'image en niveaux de
+gris $M_N$, dans laquelle l'intensité des pixels représente la force du
+gradient.
+
+\section{Déroulement mathématique de l'algorithme}
+
+Pour une image d'entrée $I$, la méthode suit les étapes suivantes :
+\begin{enumerate}[leftmargin=1.2cm]
+    \item \textbf{Préparation :} représenter l'image en niveaux de gris,
+    si elle est initialement en couleur.
+    \item \textbf{Gradient horizontal :} calculer
+    \[
+        G_x=I*K_x.
+    \]
+    \item \textbf{Gradient vertical :} calculer
+    \[
+        G_y=I*K_y.
+    \]
+    \item \textbf{Magnitude :} calculer, pour chaque pixel,
+    \[
+        M=\sqrt{G_x^2+G_y^2}.
+    \]
+    \item \textbf{Normalisation :} transformer les valeurs de $M$ en
+    intensités comprises entre $0$ et $255$, selon la formule min-max.
+    \item \textbf{Seuillage (facultatif) :} si un seuil $T$ est choisi,
+    produire l'image binaire $E$ à partir de $M_N$.
+\end{enumerate}
+
+\section{Interprétation et limites}
+
+La méthode de Sobel est simple et relativement peu coûteuse en calcul.
+Elle fournit une estimation du gradient dans deux directions et permet
+ainsi de mettre en évidence les transitions d'intensité.
+
+Cependant, le masque de Sobel ne supprime pas complètement le bruit.
+Des variations locales non significatives peuvent donc produire des
+magnitudes élevées. Un pré-lissage de l'image peut être envisagé lorsque
+le bruit est important.
+
+De plus, la normalisation min-max dépend des valeurs minimale et maximale
+présentes dans l'image traitée. Le contraste de l'image de magnitude peut
+donc varier d'une image à l'autre.
+
+Enfin, Sobel détecte les variations d'intensité : un contour n'est pas
+nécessairement une frontière sémantique entre deux objets. Il s'agit avant
+tout d'une discontinuité locale de luminosité.
+
+\section{Conclusion}
+
+L'opérateur de Sobel estime les dérivées spatiales d'une image à l'aide de
+deux masques $3\times3$. Les composantes $G_x$ et $G_y$ permettent de
+calculer la magnitude du gradient, qui mesure la force des variations
+d'intensité. Après normalisation, un seuillage facultatif permet de
+transformer cette information en une carte binaire des contours.
+
+La chaîne mathématique essentielle de la méthode peut être résumée par :
+\[
+    I
+    \longrightarrow
+    (G_x,G_y)
+    \longrightarrow
+    M=\sqrt{G_x^2+G_y^2}
+    \longrightarrow
+    M_N
+    \longrightarrow
+    E\ \text{(si seuillage)}.
+\]
+
+\end{document}
